@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PLC 段码器 · 七段数码管控制演示</title>
+<style>
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 24px 16px 40px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    color: #c9d4e0;
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    background:
+      radial-gradient(1100px 560px at 50% -12%, #1a2634 0%, rgba(11, 15, 20, 0) 72%),
+      linear-gradient(180deg, #0d1218 0%, #080b0f 100%);
+    background-attachment: fixed;
+  }
+
+  .wrap { width: 100%; max-width: 940px; }
+
+  h1 {
+    margin: 0 0 18px;
+    font-size: 1.12rem;
+    font-weight: 600;
+    letter-spacing: .09em;
+    color: #e2ecf6;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  h1 span {
+    font-size: .72rem;
+    font-weight: 400;
+    letter-spacing: .16em;
+    color: #5c7185;
+  }
+
+  /* ---------- 面板 ---------- */
+  .panel {
+    position: relative;
+    background: linear-gradient(180deg, #161d26 0%, #111721 100%);
+    border: 1px solid #23303f;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .035);
+  }
+
+  .panel h2 {
+    margin: 0 0 16px;
+    font-size: .74rem;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: #6f8296;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .panel h2::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #3fb6ff;
+    box-shadow: 0 0 9px #3fb6ff;
+  }
+
+  /* ---------- 主区域布局 ---------- */
+  .main {
+    display: grid;
+    grid-template-columns: 232px 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* ---------- 七段数码管 ---------- */
+  .seg-display {
+    position: relative;
+    width: 160px;
+    height: 272px;
+    margin: 4px auto;
+  }
+
+  .seg {
+    position: absolute;
+    border-radius: 7px;
+    background: #241417;
+    box-shadow: inset 0 0 7px rgba(0, 0, 0, .95), 0 0 0 1px rgba(255, 255, 255, .02);
+    transition: background .12s linear, box-shadow .12s linear;
+  }
+
+  .seg.on {
+    background: #ff3524;
+    box-shadow:
+      0 0 10px #ff3524,
+      0 0 24px rgba(255, 53, 36, .78),
+      0 0 46px rgba(255, 53, 36, .38),
+      inset 0 0 6px rgba(255, 255, 255, .38);
+  }
+
+  /* 段位几何布局（a b c d e f g dp） */
+  .seg-a  { left: 30px;  top: 16px;  width: 100px; height: 18px; }
+  .seg-b  { left: 112px; top: 36px;  width: 18px;  height: 96px; }
+  .seg-c  { left: 112px; top: 154px; width: 18px;  height: 96px; }
+  .seg-d  { left: 30px;  top: 252px; width: 100px; height: 18px; }
+  .seg-e  { left: 30px;  top: 154px; width: 18px;  height: 96px; }
+  .seg-f  { left: 30px;  top: 36px;  width: 18px;  height: 96px; }
+  .seg-g  { left: 30px;  top: 134px; width: 100px; height: 18px; }
+  .seg-dp { left: 136px; top: 252px; width: 18px;  height: 18px; border-radius: 50%; }
+
+  /* ---------- 输出指示灯 ---------- */
+  .led-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .led {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    padding: 12px 6px 10px;
+    background: #101720;
+    border: 1px solid #1f2b38;
+    border-radius: 11px;
+    transition: border-color .18s, background .18s, box-shadow .18s;
+  }
+
+  .led.on {
+    border-color: #1f6b45;
+    background: #0e1e18;
+    box-shadow: inset 0 0 14px rgba(0, 230, 118, .16);
+  }
+
+  .lamp {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid #2a3744;
+    background: radial-gradient(circle at 35% 30%, #2d3b46, #161f28 72%);
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, .75);
+    transition: background .14s, box-shadow .14s, border-color .14s;
+  }
+
+  .led.on .lamp {
+    border-color: #00e676;
+    background: radial-gradient(circle at 35% 30%, #c6ffe2, #00e676 46%, #009e50 100%);
+    box-shadow:
+      0 0 9px #00e676,
+      0 0 20px rgba(0, 230, 118, .72),
+      0 0 38px rgba(0, 230, 118, .34);
+  }
+
+  .led-q {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: .74rem;
+    letter-spacing: .06em;
+    color: #7c90a5;
+  }
+  .led.on .led-q { color: #7dffb8; }
+
+  .led-seg {
+    font-size: .64rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    color: #46586a;
+  }
+  .led.on .led-seg { color: #00e676; }
+
+  /* ---------- 状态显示 ---------- */
+  .status {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .stat {
+    background: #0d131a;
+    border: 1px solid #1f2b38;
+    border-radius: 10px;
+    padding: 10px 14px;
+    min-width: 0;
+  }
+
+  .stat .k {
+    font-size: .64rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: #5d7288;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stat .v {
+    margin-top: 5px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 1.3rem;
+    color: #e6eef7;
+    letter-spacing: .05em;
+  }
+
+  .stat .v.red   { color: #ff5a4d; text-shadow: 0 0 12px rgba(255, 90, 77, .6); }
+  .stat .v.green { color: #00e676; text-shadow: 0 0 12px rgba(0, 230, 118, .55); }
+
+  /* ---------- 数字键盘 ---------- */
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+
+  .key {
+    padding: 15px 0;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #c9d8e8;
+    background: linear-gradient(180deg, #1c2632, #141c26);
+    border: 1px solid #2a3a4a;
+    border-radius: 10px;
+    cursor: pointer;
+    outline: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .12s, border-color .12s, color .12s, box-shadow .12s, transform .06s;
+  }
+
+  .key:hover {
+    border-color: #3fb6ff;
+    color: #fff;
+    box-shadow: 0 0 14px rgba(63, 182, 255, .28);
+  }
+
+  .key:active,
+  .key.flash {
+    background: linear-gradient(180deg, #0e5a8a, #0a3f63);
+    border-color: #3fb6ff;
+    color: #fff;
+    transform: translateY(1px);
+    box-shadow: 0 0 18px rgba(63, 182, 255, .65), inset 0 0 14px rgba(63, 182, 255, .42);
+  }
+
+  /* ---------- 输入框 ---------- */
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px dashed #1f2b38;
+  }
+
+  .input-row label {
+    font-size: .78rem;
+    letter-spacing: .1em;
+    color: #6f8296;
+  }
+
+  #numInput {
+    width: 72px;
+    padding: 10px 12px;
+    text-align: center;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 1.15rem;
+    color: #ff5a4d;
+    background: #0b1016;
+    border: 1px solid #2a3a4a;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+
+  #numInput:focus {
+    border-color: #ff5a4d;
+    box-shadow: 0 0 12px rgba(255, 90, 77, .38);
+  }
+
+  .hint {
+    font-size: .72rem;
+    color: #4f6274;
+    letter-spacing: .04em;
+  }
+
+  /* ---------- 响应式 ---------- */
+  @media (max-width: 700px) {
+    .main { grid-template-columns: 1fr; }
+    .seg-display { margin: 4px auto 8px; }
+  }
+
+  @media (max-width: 520px) {
+    body { padding: 16px 10px 30px; }
+    .panel { padding: 14px; border-radius: 12px; }
+    .status { grid-template-columns: 1fr; gap: 10px; }
+    .stat .v { font-size: 1.15rem; }
+    .led-grid { gap: 8px; }
+    .lamp { width: 24px; height: 24px; }
+    .keypad { gap: 8px; }
+    .key { padding: 13px 0; font-size: 1.1rem; }
+    .hint { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>PLC 段码器控制演示 <span>七段数码管 · 8 路输出 Q0.0 ~ Q0.7</span></h1>
+
+  <div class="main">
+    <!-- 数码管 -->
+    <section class="panel">
+      <h2>七段数码管</h2>
+      <div class="seg-display">
+        <div class="seg seg-a"></div>
+        <div class="seg seg-b"></div>
+        <div class="seg seg-c"></div>
+        <div class="seg seg-d"></div>
+        <div class="seg seg-e"></div>
+        <div class="seg seg-f"></div>
+        <div class="seg seg-g"></div>
+        <div class="seg seg-dp"></div>
+      </div>
+    </section>
+
+    <!-- 输出指示灯 -->
+    <section class="panel">
+      <h2>PLC 输出指示灯</h2>
+      <div class="led-grid" id="ledGrid"></div>
+    </section>
+  </div>
+
+  <!-- 控制与状态 -->
+  <section class="panel">
+    <h2>控制与状态</h2>
+
+    <div class="status">
+      <div class="stat">
+        <div class="k">当前数字</div>
+        <div class="v red" id="digitVal">0</div>
+      </div>
+      <div class="stat">
+        <div class="k">段码 a b c d e f g dp</div>
+        <div class="v" id="binVal">1111 1100</div>
+      </div>
+      <div class="stat">
+        <div class="k">十六进制（共阴）</div>
+        <div class="v green" id="hexVal">0xFC</div>
+      </div>
+    </div>
+
+    <div class="keypad" id="keypad"></div>
+
+    <div class="input-row">
+      <label for="numInput">手动输入 0~9：</label>
+      <input id="numInput" type="text" inputmode="numeric" maxlength="1" value="0" autocomplete="off" />
+      <span class="hint">点击键盘按钮，或直接敲击数字键 0~9 切换显示</span>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =========================================================
+     段码定义
+     段顺序：a, b, c, d, e, f, g, dp
+     共阴逻辑：1 = 亮，0 = 灭
+     位映射：a = bit7 ... dp = bit0
+     ========================================================= */
+  var SEGS = ["a", "b", "c", "d", "e", "f", "g", "dp"];
+
+  var CODES = {
+    "0": 0xFC, // 1111 1100
+    "1": 0x60, // 0110 0000
+    "2": 0xDA, // 1101 1010
+    "3": 0xF2, // 1111 0010
+    "4": 0x66, // 0110 0110
+    "5": 0xB6, // 1011 0110
+    "6": 0xBE, // 1011 1110
+    "7": 0xE0, // 1110 0000
+    "8": 0xFE, // 1111 1110
+    "9": 0xF6  // 1111 0110
+  };
+
+  /* =========================================================
+     DOM 引用
+     ========================================================= */
+  var ledGrid  = document.getElementById("ledGrid");
+  var keypad   = document.getElementById("keypad");
+  var input    = document.getElementById("numInput");
+  var digitVal = document.getElementById("digitVal");
+  var binVal   = document.getElementById("binVal");
+  var hexVal   = document.getElementById("hexVal");
+
+  /* 数码管 8 个段元素（按 a,b,c,d,e,f,g,dp 顺序） */
+  var segEls = SEGS.map(function (s) {
+    return document.querySelector(".seg-" + s);
+  });
+
+  /* 动态生成 8 个输出指示灯（Q0.0 ~ Q0.7 对应 a ~ dp） */
+  var lampEls = [];
+  SEGS.forEach(function (seg, i) {
+    var led = document.createElement("div");
+    led.className = "led";
+    led.innerHTML =
+      '<div class="lamp"></div>' +
+      '<div class="led-q">Q0.' + i + '</div>' +
+      '<div class="led-seg">' + seg + '</div>';
+    ledGrid.appendChild(led);
+    lampEls.push(led);
+  });
+
+  /* 动态生成 0~9 数字键盘 */
+  for (var d = 0; d <= 9; d++) {
+    (function (num) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "key";
+      btn.dataset.digit = String(num);
+      btn.textContent = String(num);
+      btn.addEventListener("click", function () {
+        selectDigit(String(num));
+        btn.blur();
+      });
+      keypad.appendChild(btn);
+    })(d);
+  }
+
+  /* =========================================================
+     核心逻辑
+     ========================================================= */
+  var currentDigit = "0";
+
+  function bitAt(code, index) {
+    return (code >> (7 - index)) & 1; // index 0 -> bit7 (a)
+  }
+
+  function render(digit) {
+    var code = CODES[digit];
+
+    /* 1. 数码管各段亮灭 */
+    for (var i = 0; i < SEGS.length; i++) {
+      var on = bitAt(code, i) === 1;
+      segEls[i].classList.toggle("on", on);
+      lampEls[i].classList.toggle("on", on);
+    }
+
+    /* 2. 二进制串（a b c d e f g dp） */
+    var bin = "";
+    for (var b = 7; b >= 0; b--) {
+      bin += (code >> b) & 1;
+    }
+
+    /* 3. 状态显示 */
+    digitVal.textContent = digit;
+    binVal.textContent = bin.slice(0, 4) + " " + bin.slice(4);
+    hexVal.textContent = "0x" + code.toString(16).toUpperCase().padStart(2, "0");
+  }
+
+  function flashKey(digit) {
+    var btn = keypad.querySelector('.key[data-digit="' + digit + '"]');
+    if (!btn) return;
+    btn.classList.add("flash");
+    clearTimeout(btn._flashTimer);
+    btn._flashTimer = setTimeout(function () {
+      btn.classList.remove("flash");
+    }, 220);
+  }
+
+  function selectDigit(digit) {
+    if (!Object.prototype.hasOwnProperty.call(CODES, digit)) return;
+    currentDigit = digit;
+    render(digit);
+    if (input.value !== digit) input.value = digit;
+    flashKey(digit);
+  }
+
+  /* =========================================================
+     交互：键盘输入
+     ========================================================= */
+  document.addEventListener("keydown", function (e) {
+    /* 焦点在输入框内时，交给输入框自己的 input 事件处理 */
+    if (e.target === input) return;
+
+    if (/^[0-9]$/.test(e.key)) {
+      selectDigit(e.key);
+      e.preventDefault();
+    }
+  });
+
+  /* =========================================================
+     交互：输入框手动输入
+     ========================================================= */
+  input.addEventListener("input", function () {
+    var cleaned = input.value.replace(/[^0-9]/g, "");
+
+    if (cleaned.length === 0) {
+      /* 允许清空，保持当前显示不变 */
+      return;
+    }
+
+    var digit = cleaned.charAt(cleaned.length - 1);
+    if (input.value !== digit) {
+      input.value = digit;
+    }
+    selectDigit(digit);
+  });
+
+  input.addEventListener("blur", function () {
+    /* 失焦时补回当前数字，避免出现空框 */
+    if (input.value === "") {
+      input.value = currentDigit;
+    }
+  });
+
+  /* =========================================================
+     初始化
+     ========================================================= */
+  selectDigit("0");
+
+})();
+</script>
+</body>
+</html>
